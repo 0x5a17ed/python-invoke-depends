@@ -36,5 +36,7 @@ Issues = "https://github.com/0x5a17ed/python-invoke-depends/issues"
 
 [dependency-groups]
 dev = [
+    "coverage>=7.11.0",
     "pytest>=8.4.2",
+    "ty>=0.0.1a25",
 ]

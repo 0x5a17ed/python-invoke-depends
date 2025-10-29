@@ -7,36 +7,41 @@ import pathlib
 import string
 import typing as t
 
-import cachetools
-
-Pathish = str | pathlib.Path
-PathishSeq = t.Sequence[Pathish]
-FlattenablePaths = t.Sequence[t.Union[Pathish, PathishSeq]]
+from . import path_mtime, arg_templates, fingerprint
+from .typing import FlattenablePaths
 
 
-@cachetools.cached(cache={})
-def _path_mtime(path: pathlib.Path) -> int:
-    return path.stat().st_mtime_ns
-
-
-def _path_mtime_invalidate(path: pathlib.Path) -> None:
-    """Invalidate the cached mtime for a given path."""
-    _path_mtime.cache.pop(path, None)
-
-
-def _is_newer(src: pathlib.Path, dst: pathlib.Path) -> bool:
-    """Check if src is newer than dst."""
-    return _path_mtime(src) > _path_mtime(dst)
-
-
-def _resolve(items: FlattenablePaths) -> list[pathlib.Path]:
-    """Convert raw file paths to Path objects (flatten nested sequences)."""
+def _flatten(items: FlattenablePaths) -> list[pathlib.Path]:
+    """Flatten nested sequences of paths and strings into a single list."""
     return [
-        pathlib.Path(p)
+        p
         for p in itertools.chain.from_iterable(
             item if isinstance(item, (list, tuple, set)) else [item] for item in items
         )
     ]
+
+
+def _should_run(
+    fp: str, inps: list[pathlib.Path], outs: list[pathlib.Path]
+) -> tuple[bool, str]:
+    # no outputs -> always run, nothing to check.
+    if not outs:
+        return True, "no outputs given"
+
+    for dst in outs:
+        # Missing output -> must rebuild.
+        if not dst.exists():
+            return True, f"{dst}: missing file"
+
+        if (stored := fingerprint.get(dst)) != fp:
+            print(stored, fp)
+            return True, f"{dst}: context changed"
+
+        # Any input newer than this output -> must rebuild.
+        if newer := next((src for src in inps if path_mtime.is_newer(src, dst)), None):
+            return True, f"{dst}: older than {newer}"
+
+    return False, "up to date"
 
 
 P = t.ParamSpec("P")
@@ -50,34 +55,19 @@ class Depends(t.Generic[P, R]):
         self,
         body: t.Callable[P, R],
         *,
-        deps: FlattenablePaths,
-        creates: FlattenablePaths,
+        inps: FlattenablePaths,
+        outs: FlattenablePaths,
         touch_files: bool = False,
         verbose: bool = False,
         echo_format: str = "[depends] ${func_name} -> ${reason}",
     ) -> None:
         self.body = body
 
-        self.dep_files = _resolve(deps)
-        self.create_files = _resolve(creates)
-        self.touch_files = touch_files
+        self.inp_files = _flatten(inps)
+        self.out_files = _flatten(outs)
+        self.touch_outputs = touch_files
         self.verbose = verbose
         self.echo_template = string.Template(echo_format)
-
-    def _should_run(self) -> tuple[bool, str]:
-        if not self.dep_files:
-            return True, f"no source files given"
-        if not self.create_files:
-            return True, f"no target files given"
-
-        for src in self.dep_files:
-            for dst in self.create_files:
-                if not dst.exists():
-                    return True, f"target missing ({dst})"
-                if _is_newer(src, dst):
-                    return True, f"{src} newer than {dst}"
-
-        return False, "up to date"
 
     def _report_reason(self, reason: str) -> None:
         if not self.verbose:
@@ -93,16 +83,24 @@ class Depends(t.Generic[P, R]):
         print(out, flush=True)
 
     def call(self, *args: P.args, **kwargs: P.kwargs) -> t.Optional[R]:
-        should_run, reason = self._should_run()
+        inps = arg_templates.expand(self.inp_files, args, kwargs, self.body)
+        outs = arg_templates.expand(self.out_files, args, kwargs, self.body)
+
+        fp = fingerprint.make(args, kwargs)
+
+        should_run, reason = _should_run(fp, inps, outs)
         self._report_reason(reason)
         if not should_run:
             return None
 
         result = self.body(*args, **kwargs)
 
-        for dst in self.create_files:
-            _path_mtime_invalidate(dst)
-            if self.touch_files:
+        for dst in outs:
+            path_mtime.invalidate(dst)
+
+            fingerprint.set(dst, fp)
+
+            if self.touch_outputs:
                 dst.touch()
 
         return result
@@ -110,9 +108,9 @@ class Depends(t.Generic[P, R]):
 
 def on(
     *,
-    deps: FlattenablePaths,
-    creates: FlattenablePaths,
-    touch_files: bool = False,
+    inps: FlattenablePaths,
+    outs: FlattenablePaths,
+    touch_outputs: bool = False,
     verbose: bool = False,
     echo_format: str = "[depends] ${func_name} -> ${reason}",
     klass: type[Depends[P, R]] = Depends,
@@ -122,9 +120,9 @@ def on(
     def decorator(fn: t.Callable[P, R]) -> t.Callable[P, t.Optional[R]]:
         depends = klass(
             fn,
-            deps=deps,
-            creates=creates,
-            touch_files=touch_files,
+            inps=inps,
+            outs=outs,
+            touch_files=touch_outputs,
             verbose=verbose,
             echo_format=echo_format,
         )
