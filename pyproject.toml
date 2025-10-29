@@ -1,0 +1,40 @@
+[build-system]
+requires = ["uv_build>=0.9.5,<0.10.0"]
+build-backend = "uv_build"
+
+
+[project]
+name = "invoke-depends"
+version = "0.1.0"
+description = "Make-ish dependency tracking for Invoke tasks"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Arthur `0x5a17ed` Skowronek", email = "0x5a17ed@tuta.io" }
+]
+
+requires-python = ">=3.11"
+dependencies = [
+    "cachetools>=6.2.1",
+    "invoke>=2.2.1",
+]
+
+keywords = ["invoke", "task", "dependency", "build", "automation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT No Attribution License (MIT-0)",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/0x5a17ed/python-invoke-depends"
+Repository = "https://github.com/0x5a17ed/python-invoke-depends"
+Issues = "https://github.com/0x5a17ed/python-invoke-depends/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
