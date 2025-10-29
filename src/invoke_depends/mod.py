@@ -88,7 +88,7 @@ class Depends(t.Generic[P, R]):
 
         print(out, flush=True)
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> t.Optional[R]:
+    def call(self, *args: P.args, **kwargs: P.kwargs) -> t.Optional[R]:
         should_run, reason = self._should_run()
         self._report_reason(reason)
         if not should_run:
@@ -104,15 +104,31 @@ class Depends(t.Generic[P, R]):
         return result
 
 
-def on(*args: t.Any, **kwargs: t.Any) -> t.Callable[..., Depends]:
-    klass: type[Depends] = kwargs.pop("klass", Depends)
+def on(
+        *,
+        deps: t.Sequence[t.Union[str, t.Sequence[str]]],
+        creates: t.Sequence[t.Union[str, t.Sequence[str]]],
+        touch_files: bool = False,
+        verbose: bool = False,
+        echo_format: str = "[depends] ${func_name} -> ${reason}",
+        klass: type[Depends[P, R]] = Depends,
+) -> t.Callable[[t.Callable[P, R]], t.Callable[P, t.Optional[R]]]:
+    """Dependency-aware decorator for Invoke tasks or plain functions."""
 
-    # @decorator used directly
-    if len(args) == 1 and callable(args[0]) and not isinstance(args[0], Depends):
-        return klass(args[0], **kwargs)
+    def decorator(fn: t.Callable[P, R]) -> t.Callable[P, t.Optional[R]]:
+        depends = klass(
+            fn,
+            deps=deps,
+            creates=creates,
+            touch_files=touch_files,
+            verbose=verbose,
+            echo_format=echo_format,
+        )
 
-    # @decorator(...)
-    def inner(func: t.Callable[P, R]) -> Depends[P, R]:
-        return klass(func, **kwargs)
+        @functools.wraps(fn)
+        def wrapper(*a: P.args, **kw: P.kwargs) -> t.Optional[R]:
+            return depends.call(*a, **kw)
 
-    return inner
+        return wrapper
+
+    return decorator
