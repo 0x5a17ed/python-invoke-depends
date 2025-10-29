@@ -88,10 +88,6 @@ class Depends(t.Generic[P, R]):
 
         print(out, flush=True)
 
-    def __getattr__(self, name: str) -> t.Any:
-        """Delegate unknown attributes to the underlying function."""
-        return getattr(self.body, name)
-
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> t.Optional[R]:
         should_run, reason = self._should_run()
         self._report_reason(reason)
