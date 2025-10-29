@@ -1,5 +1,6 @@
 def test_invoke_task_integration(tmp_path):
     import invoke
+
     import invoke_depends
 
     src = tmp_path / "a.txt"

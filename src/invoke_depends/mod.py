@@ -1,12 +1,17 @@
 # SPDX-License-Identifier: MIT-0
 from __future__ import annotations
+
 import functools
 import itertools
-import string
 import pathlib
+import string
 import typing as t
 
 import cachetools
+
+Pathish = str | pathlib.Path
+PathishSeq = t.Sequence[Pathish]
+FlattenablePaths = t.Sequence[t.Union[Pathish, PathishSeq]]
 
 
 @cachetools.cached(cache={})
@@ -24,7 +29,7 @@ def _is_newer(src: pathlib.Path, dst: pathlib.Path) -> bool:
     return _path_mtime(src) > _path_mtime(dst)
 
 
-def _resolve(items: t.Sequence[t.Union[str, t.Sequence[str]]]) -> list[pathlib.Path]:
+def _resolve(items: FlattenablePaths) -> list[pathlib.Path]:
     """Convert raw file paths to Path objects (flatten nested sequences)."""
     return [
         pathlib.Path(p)
@@ -45,14 +50,13 @@ class Depends(t.Generic[P, R]):
         self,
         body: t.Callable[P, R],
         *,
-        deps: t.Sequence[t.Union[str, t.Sequence[str]]],
-        creates: t.Sequence[t.Union[str, t.Sequence[str]]],
+        deps: FlattenablePaths,
+        creates: FlattenablePaths,
         touch_files: bool = False,
         verbose: bool = False,
         echo_format: str = "[depends] ${func_name} -> ${reason}",
     ) -> None:
         self.body = body
-        functools.update_wrapper(self, self.body)
 
         self.dep_files = _resolve(deps)
         self.create_files = _resolve(creates)
@@ -105,13 +109,13 @@ class Depends(t.Generic[P, R]):
 
 
 def on(
-        *,
-        deps: t.Sequence[t.Union[str, t.Sequence[str]]],
-        creates: t.Sequence[t.Union[str, t.Sequence[str]]],
-        touch_files: bool = False,
-        verbose: bool = False,
-        echo_format: str = "[depends] ${func_name} -> ${reason}",
-        klass: type[Depends[P, R]] = Depends,
+    *,
+    deps: FlattenablePaths,
+    creates: FlattenablePaths,
+    touch_files: bool = False,
+    verbose: bool = False,
+    echo_format: str = "[depends] ${func_name} -> ${reason}",
+    klass: type[Depends[P, R]] = Depends,
 ) -> t.Callable[[t.Callable[P, R]], t.Callable[P, t.Optional[R]]]:
     """Dependency-aware decorator for Invoke tasks or plain functions."""
 
