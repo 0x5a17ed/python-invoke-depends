@@ -34,7 +34,6 @@ def _should_run(
             return True, f"{dst}: missing file"
 
         if (stored := fingerprint.get(dst)) != fp:
-            print(stored, fp)
             return True, f"{dst}: context changed"
 
         # Any input newer than this output -> must rebuild.
