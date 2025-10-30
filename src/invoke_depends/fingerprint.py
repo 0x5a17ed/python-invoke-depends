@@ -16,7 +16,7 @@ def make(args: tuple, kwargs: dict) -> str:
     if args and isinstance(args[0], invoke.Context):
         args = args[1:]
 
-    blob = json.dumps((args, kwargs)).encode()
+    blob = json.dumps((args, kwargs), default=str, sort_keys=True).encode()
     return hashlib.sha1(blob).hexdigest()
 
 
