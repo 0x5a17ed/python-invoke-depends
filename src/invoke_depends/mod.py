@@ -39,7 +39,7 @@ def _should_run(
             return True, f"{dst}: older than {newer_src}"
 
         # If the argument fingerprint has changed -> trigger rebuild.
-        if fingerprint.get(dst) != fp:
+        if fingerprint.read(dst) != fp:
             return True, f"{dst}: context changed"
 
     return False, "up to date"
@@ -99,7 +99,7 @@ class Depends(t.Generic[P, R]):
         for dst in outs:
             path_mtime.invalidate(dst)
 
-            fingerprint.set(dst, fp)
+            fingerprint.write(dst, fp)
 
             if self.touch_outputs:
                 dst.touch()

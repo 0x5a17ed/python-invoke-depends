@@ -20,14 +20,14 @@ def make(args: tuple, kwargs: dict) -> str:
     return hashlib.sha1(blob).hexdigest()
 
 
-def get(path: pathlib.Path) -> str | None:
+def read(path: pathlib.Path) -> str | None:
     try:
         return os.getxattr(path, XATTR_KEY, follow_symlinks=False).decode()
     except OSError:
         return None
 
 
-def set(path: pathlib.Path, value: str) -> None:
+def write(path: pathlib.Path, value: str) -> None:
     try:
         os.setxattr(path, XATTR_KEY, value.encode(), follow_symlinks=False)
     except OSError:
