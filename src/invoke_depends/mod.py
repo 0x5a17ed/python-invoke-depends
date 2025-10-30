@@ -50,7 +50,7 @@ R = t.TypeVar("R")
 
 
 class Depends(t.Generic[P, R]):
-    """Skip a task if all `creates` exist and are newer than every `on`."""
+    """Skip a task if all `outs` exist and are newer than every `inps`."""
 
     def __init__(
         self,
