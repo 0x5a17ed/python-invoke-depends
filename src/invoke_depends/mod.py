@@ -33,12 +33,14 @@ def _should_run(
         if not dst.exists():
             return True, f"{dst}: missing file"
 
-        if (stored := fingerprint.get(dst)) != fp:
-            return True, f"{dst}: context changed"
+        # If any input is newer than this output -> trigger rebuild.
+        newer_src = next((src for src in inps if path_mtime.is_newer(src, dst)), None)
+        if newer_src:
+            return True, f"{dst}: older than {newer_src}"
 
-        # Any input newer than this output -> must rebuild.
-        if newer := next((src for src in inps if path_mtime.is_newer(src, dst)), None):
-            return True, f"{dst}: older than {newer}"
+        # If the argument fingerprint has changed -> trigger rebuild.
+        if fingerprint.get(dst) != fp:
+            return True, f"{dst}: context changed"
 
     return False, "up to date"
 
