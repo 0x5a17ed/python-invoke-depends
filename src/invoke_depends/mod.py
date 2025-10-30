@@ -39,7 +39,7 @@ def _should_run(
             return True, f"{dst}: older than {newer_src}"
 
         # If the argument fingerprint has changed -> trigger rebuild.
-        if fingerprint.read(dst) != fp:
+        if not fingerprint.verify(dst, fp):
             return True, f"{dst}: context changed"
 
     return False, "up to date"

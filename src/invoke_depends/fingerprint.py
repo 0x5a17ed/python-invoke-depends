@@ -32,3 +32,14 @@ def write(path: pathlib.Path, value: str) -> None:
         os.setxattr(path, XATTR_KEY, value.encode(), follow_symlinks=False)
     except OSError:
         pass
+
+
+def verify(path: pathlib.Path, expected: str) -> bool:
+    """
+    Verifies whether the stored fingerprint matches the given expected value.
+
+    Absence or inaccessibility of a fingerprint is treated as unsuccessful
+    verification to avoid false negatives on unsupported filesystems.
+    """
+    stored = read(path)
+    return stored == expected
